@@ -97,10 +97,24 @@ SELECT "rental_id",
        "customer_id",
        "amount",
        "payment_date",
-        EXTRACT(DAY FROM "payment_date") AS "dia_pago"
-FROM "payment"
-ORDER BY "dia_pago" DESC, "payment_date" DESC
-LIMIT 1 OFFSET 1;
+       EXTRACT(DAY FROM "payment_date") AS "dia_pago"
+FROM "payment" AS p
+WHERE p."payment_date" = (
+
+    SELECT MAX(p1."payment_date")
+    FROM "payment" AS p1
+    WHERE p1."payment_date" < (
+    
+        SELECT MAX(p3."payment_date")
+        FROM "payment" AS p3
+        WHERE p3."payment_date" < (
+        
+            SELECT MAX(p4."payment_date")
+            FROM "payment" AS p4
+        )
+    )
+);
+
 
 --12. Encuentra el título de las películas en la tabla “film” que no sean ni ‘NC-17’ ni ‘G’ en cuanto a su clasificación.
 
@@ -257,15 +271,17 @@ HAVING COUNT("film_id") > 40;
 -- 29. Obtener todas las películas y, si están disponibles en el inventario, mostrar la cantidad disponible.
 
 
-
-
-SELECT f."title" ,
-	   COUNT(*)
-FROM "film" AS f
+SELECT 
+    f."title",
+    COUNT(i."inventory_id") AS cantidad_disponible
+FROM 
+    "film" AS f
 LEFT JOIN 
-	"inventory" AS i ON f."film_id" = i."film_id"
-GROUP BY f."title"
-ORDER BY f."title";
+    "inventory" AS i ON f."film_id" = i."film_id"
+GROUP BY 
+    f."title"
+ORDER BY 
+    f."title";
 
 -- 30. Obtener los actores y el número de películas en las que ha actuado.
 
@@ -276,7 +292,9 @@ INNER JOIN
 	"film_actor" AS fa ON a."actor_id" = fa."actor_id"
 INNER JOIN 
 	film AS f ON fa."film_id" = f."film_id"
-GROUP BY a."first_name", a."last_name";
+GROUP BY 
+	a."first_name",
+	a."last_name";
 
 
 --31. Obtener todas las películas y mostrar los actores que han actuado en ellas, incluso si algunas películas no tienen actores asociados.
@@ -563,7 +581,7 @@ SELECT * FROM películas_alquiladas;
 SELECT f."title" AS "Películas no devueltas de Tammy Sanders"
 FROM "customer" AS c 
 INNER JOIN 
-	"rental" AS r ON c."customer_id"="r.customer_id"
+	"rental" AS r ON c."customer_id"=r."customer_id"
 INNER JOIN 
 	"inventory" AS i ON r."inventory_id" = i."inventory_id" 
 INNER JOIN 
@@ -616,19 +634,33 @@ ORDER BY a."last_name";
 
 -- 56. Encuentra el nombre y apellido de los actores que no han actuado en ninguna película de la categoría ‘Music’.
 
-SELECT DISTINCT a."first_name", 
-	            a."last_name"
+SELECT DISTINCT a."first_name",
+			    a."last_name"
 FROM "actor" a
-INNER JOIN 
+INNER JOIN
 	"film_actor" fa ON a."actor_id" = fa."actor_id"
-INNER JOIN
-	"film" f ON fa."film_id" = f."film_id"
-INNER JOIN
-	"film_category" fc ON f."film_id" = fc."film_id"
 INNER JOIN 
+	"film" f ON fa."film_id" = f."film_id"
+INNER JOIN 
+	"film_category" fc ON f."film_id" = fc."film_id"
+INNER JOIN
 	"category" c ON fc."category_id" = c."category_id"
-	WHERE c."name" <> 'Music'
+	WHERE a."actor_id" NOT IN (
+	
+    SELECT fa2."actor_id"
+    	FROM "film_actor" fa2
+   		 INNER JOIN 
+    			"film" f2 ON fa2."film_id" = f2."film_id"
+   		 INNER JOIN
+    			"film_category" fc2 ON f2."film_id" = fc2."film_id"
+   		 INNER JOIN
+    			"category" c2 ON fc2."category_id" = c2."category_id"
+    WHERE c2."name" = 'Music'
+)
 ORDER BY a."last_name";
+
+
+
 
 -- 57. Encuentra el título de todas las películas que fueron alquiladas por más de 8 días.
 
